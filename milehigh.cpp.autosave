@@ -188,6 +188,7 @@ void MileHigh::recievedGet(QJsonDocument* doc){
 
                 auto id = objectData.value("id").toDouble();
                 QString name = objectData.value("name").toString();
+                
             } else if (type == "Obstacle") {
                 QJsonObject boundaryData = objectData.value("boundary").toObject();
                 QJsonObject min = boundaryData.value("min").toObject();
