@@ -2,9 +2,10 @@
 #include <QPainter>
 #include <QWidget>
 #include <QGraphicsScene>
+#include <qmath.h>
 
 Plane::Plane(double id)
-    : QGraphicsObject()
+    : QGraphicsItem()
     , _id(id)
     , _dirty(false)
 {
@@ -18,6 +19,17 @@ void Plane::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWi
     painter->setPen(pen);
     painter->setBrush(Qt::blue);
     painter->drawEllipse(QPointF(0, 0), _collisionRadius, _collisionRadius);
+
+    auto distance = _collisionRadius;
+    auto angle = rotation();
+
+    const qreal DEGTORAD = M_PI/180;
+    qreal x1 = distance * 0.7 * qCos(angle * DEGTORAD);
+    qreal y1 = distance * 0.7 * qSin(angle * DEGTORAD);
+    qreal x2 = distance * qCos(angle * DEGTORAD);
+    qreal y2 = distance * qSin(angle * DEGTORAD);
+
+    painter->drawLine(QPointF(x1, y1), QPointF(x2, y2));
 }
 
 QRectF Plane::boundingRect() const {

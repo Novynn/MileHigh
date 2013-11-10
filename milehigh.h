@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QMap>
 #include <QList>
+#include <QJsonDocument>
 class QTimer;
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -15,6 +16,7 @@ class Runway;
 
 class MileHigh : public QGraphicsScene
 {
+    Q_OBJECT
 public:
     MileHigh(QObject* parent = 0);
 
@@ -39,9 +41,16 @@ public:
     QString token(){
         return _token;
     }
+
+    QJsonDocument directionsDoc() const {
+        return _directionsDoc;
+    }
 protected:
     void drawBackground(QPainter *painter, const QRectF &rect);
     void drawForeground(QPainter *painter, const QRectF &rect);
+
+    void mousePressEvent(QGraphicsSceneMouseEvent *event);
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent *event);
 private:
     QNetworkAccessManager* _net;
     QTimer* _timer;
@@ -58,6 +67,8 @@ private:
 
     void setPlanesDirty();
 
+    QJsonDocument _directionsDoc;
+
     Runway* _runway;
     QList<Obstacle*> _obstacles;
     QMap<int, Plane*> _planes;
@@ -65,6 +76,8 @@ private:
 private slots:
     void tick();
     void serverReply(QNetworkReply*);
+signals:
+    void directionsDataChanged(QString);
 };
 
 #endif // MILEHIGH_H

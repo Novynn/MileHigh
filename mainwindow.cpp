@@ -12,6 +12,8 @@ MainWindow::MainWindow(QWidget *parent) :
     // Connect our scene into a view so we can see the action!
     ui->graphicsView->setScene(app);
     ui->graphicsView->viewport()->setAutoFillBackground(false);
+    connect(app, &MileHigh::directionsDataChanged,
+            ui->textEdit, &QTextEdit::setPlainText);
     app->initialize();
 }
 

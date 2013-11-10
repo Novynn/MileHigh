@@ -9,6 +9,7 @@
 #include <QTimer>
 #include <QUrlQuery>
 #include <QGraphicsView>
+#include <QGraphicsSceneMouseEvent>
 
 #include "objects/runway.h"
 #include "objects/plane.h"
@@ -33,7 +34,7 @@ MileHigh::MileHigh(QObject *parent)
     connect(_timer, &QTimer::timeout,
             this, &MileHigh::tick);
 
-    _timer->start(200);
+    _timer->start(1000);
 }
 
 bool MileHigh::initialize(){
@@ -54,11 +55,14 @@ void MileHigh::tick(){
         // Refresh all data
         //qDebug() << "Refreshing data...";
         requestData();
+
+        // Post all new data
+        sendData();
     }
 
-    if (selectedItems().count() == 0){
-        qDebug() << selectedItems();
-    }
+//    if (selectedItems().count() > 0){
+//        qDebug() << selectedItems();
+//    }
 }
 
 void MileHigh::addPlane(Plane *plane){
@@ -99,14 +103,32 @@ void MileHigh::requestData(){
 }
 
 void MileHigh::sendData(){
+    QJsonArray directions;
+    foreach(Plane* plane, _planes){
+        if (plane->directedWaypoint().isNull()) continue;
+
+        QJsonObject direction;
+        direction.insert("plane_id", plane->id());
+        QJsonObject waypoint;
+        waypoint.insert("x", plane->directedWaypoint().x());
+        waypoint.insert("y", plane->directedWaypoint().y());
+        direction.insert("waypoint", waypoint);
+        directions.append(direction);
+    }
+    // No data to report
+    if (directions.count() == 0) return;
+
+    QJsonObject data;
+    data.insert("directions", directions);
+    data.insert("token", _token);
+    QJsonDocument doc;
+    doc.setObject(data);
+
     QNetworkRequest request;
     request.setUrl(POST_URL);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
-    QUrlQuery query;
-    query.addQueryItem("token", _token);
-
-    _net->post(request, query.toString().toLatin1());
+    _net->post(request, doc.toJson(QJsonDocument::Compact));
 }
 
 void MileHigh::drawBackground(QPainter *painter, const QRectF &rect){
@@ -118,10 +140,59 @@ void MileHigh::drawBackground(QPainter *painter, const QRectF &rect){
 void MileHigh::drawForeground(QPainter *painter, const QRectF &rect){
     QGraphicsScene::drawForeground(painter, rect);
     foreach(Plane* plane, _planes){
+        painter->drawText(plane->scenePos().x(),
+                          plane->scenePos().y(),
+                          QString::number(plane->id()));
+        painter->drawText(plane->scenePos().x() +40,
+                          plane->scenePos().y(),
+                          plane->name());
+        if (plane->flightPath().isEmpty()){
+            painter->setPen(Qt::yellow);
+
+            QPainterPath _flightPath = QPainterPath(plane->scenePos());
+
+            QLineF line(plane->scenePos(), plane->directedWaypoint());
+            QLineF line2 = line.normalVector();
+            line2.translate(-(line2.p1() - line.pointAt(0.5)));
+            line2.setLength(line2.length() / 2);
+
+            _flightPath.cubicTo(line2.p2(), line2.p2(), plane->directedWaypoint());
+            painter->drawLine(line2);
+            painter->drawPath(_flightPath);
+        }
         if (!plane->waypoint().isNull()){
-            painter->drawLine(plane->pos(), plane->waypoint());
+            painter->setPen(Qt::blue);
+            painter->drawLine(plane->scenePos(), plane->waypoint());
+        }
+        if (!plane->directedWaypoint().isNull()){
+            painter->setPen(Qt::darkBlue);
+            painter->drawLine(plane->scenePos(), plane->directedWaypoint());
         }
     }
+}
+
+static QList<Plane*> selectedPlanes;
+void MileHigh::mousePressEvent(QGraphicsSceneMouseEvent *event){
+    if (event->button() == Qt::RightButton){
+        selectedPlanes.clear();
+        foreach(QGraphicsItem* item, selectedItems()){
+            Plane* plane = dynamic_cast<Plane*>(item);
+            if (plane){
+                plane->setDirectedWaypoint(event->scenePos());
+            }
+            selectedPlanes.append(plane);
+        }
+        event->accept();
+    }
+    QGraphicsScene::mousePressEvent(event);
+}
+
+void MileHigh::mouseReleaseEvent(QGraphicsSceneMouseEvent *event){
+    //QGraphicsScene::mouseReleaseEvent(event);
+    foreach(Plane* plane, selectedPlanes){
+        plane->setSelected(true);
+    }
+    selectedPlanes.clear();
 }
 
 /*
@@ -155,7 +226,7 @@ void MileHigh::serverReply(QNetworkReply *reply){
         recievedToken(&doc);
     } else if (request.url() == GET_URL + "?token=" + _token) {
         recievedGet(&doc);
-    } else if (request.url() == POST_URL + "?token=" + _token){
+    } else if (request.url() == POST_URL){
         recievedPost(&doc);
     } else {
         qWarning() << "The server was requested with an unhandled URL.";
@@ -198,12 +269,15 @@ void MileHigh::recievedGet(QJsonDocument* doc){
             addItem(_runway);
         }
         _runway->setPos(x, y);
-        _runway->setRect(-8, 0, 16, 32);
+        _runway->setRect(-32, -64, 64, 128);
     }
 
     // Directions
     {
         QJsonArray directionsData = doc->object().value("directions").toArray();
+        _directionsDoc = QJsonDocument(directionsData);
+
+        emit directionsDataChanged(_directionsDoc.toJson(QJsonDocument::Indented));
     }
 
     // Objects
@@ -261,6 +335,5 @@ void MileHigh::recievedGet(QJsonDocument* doc){
     }
 }
 void MileHigh::recievedPost(QJsonDocument* doc){
-    doc->object();
-    qDebug() << "Post data recieved.";
+    //qDebug() << "Post data recieved: " << doc->toJson();
 }

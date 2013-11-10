@@ -1,12 +1,12 @@
 #ifndef PLANE_H
 #define PLANE_H
 
-#include <QGraphicsObject>
+#include <QGraphicsItem>
 #include <QJsonObject>
+#include "qmath.h"
 
-class Plane : public QGraphicsObject
+class Plane : public QGraphicsItem
 {
-    Q_OBJECT
 public:
     explicit Plane(double id);
 
@@ -14,8 +14,33 @@ public:
         return _id;
     }
 
+    QString name() const {
+        return _name;
+    }
+
+    void setWaypoint(QPointF waypoint) {
+        _waypoint = waypoint;
+    }
+
+    void setDirectedWaypoint(QPointF directedWaypoint){
+        _directedWaypoint = directedWaypoint;
+        // Here we have to figure out a flight path (well not here later, but here for now)
+//        _flightPath = QPainterPath(scenePos());
+
+//        QLineF line(scenePos(), _directedWaypoint);
+//        QLineF line2 = line.normalVector();
+//        line2.translate(line.pointAt(0.5));
+//        line2.setLength(40);
+
+//        _flightPath.cubicTo(line2.p2(), line2.p2(), _directedWaypoint);
+    }
+
     QPointF waypoint() const {
         return _waypoint;
+    }
+
+    QPointF directedWaypoint() const {
+        return _directedWaypoint;
     }
 
     void updateData(QJsonObject objectData){
@@ -36,7 +61,8 @@ public:
         QPointF position(positionData.value("x").toDouble(),
                          positionData.value("y").toDouble());
         setPos(position);
-        auto rotation = objectData.value("rotation").toDouble();
+        // Rotation needs a fix
+        auto rotation = objectData.value("rotation").toDouble() - 90.0f;
         setRotation(rotation);
 
         _dirty = false;
@@ -56,6 +82,9 @@ public:
         _dirty = dirty;
     }
 
+    QPainterPath flightPath() const {
+        return _flightPath;
+    }
 protected:
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
     QRectF boundingRect() const;
@@ -72,12 +101,11 @@ private:
     QString _graphicFile;
     QString _graphicPath;
     QPointF _waypoint;
+    QPointF _directedWaypoint;
+
+    QPainterPath _flightPath;
 
     bool _dirty;
-signals:
-
-public slots:
-
 };
 
 #endif // PLANE_H
