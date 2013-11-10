@@ -52,6 +52,8 @@ private:
     void addPlane(Plane* plane);
     void addObstacle(Obstacle* ob);
 
+    void setPlanesDirty();
+
     QList<Obstacle*> _obstacles;
     QMap<int, Plane*> _planes;
 

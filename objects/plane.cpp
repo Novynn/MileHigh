@@ -5,6 +5,7 @@
 Plane::Plane(double id)
     : QGraphicsObject()
     , _id(id)
+    , _dirty(false)
 {
 }
 

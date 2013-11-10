@@ -32,6 +32,8 @@ public:
         setPos(position);
         auto rotation = objectData.value("rotation").toDouble();
         setRotation(rotation);
+
+        _dirty = false;
     }
 
     static Plane* fromJson(QJsonObject objectData){
@@ -40,6 +42,14 @@ public:
         plane->updateData(objectData);
         return plane;
     }
+
+    bool dirty() const {
+        return _dirty;
+    }
+    void setDirty(bool dirty = true){
+        _dirty = dirty;
+    }
+
 protected:
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
     QRectF boundingRect() const;
@@ -57,6 +67,7 @@ private:
     QString _graphicPath;
     QJsonObject _waypoint;
 
+    bool _dirty;
 signals:
 
 public slots:

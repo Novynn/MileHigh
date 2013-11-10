@@ -8,6 +8,7 @@
 #include <QNetworkReply>
 #include <QTimer>
 #include <QUrlQuery>
+#include <QGraphicsView>
 
 #include "objects/plane.h"
 #include "objects/obstacle.h"
@@ -30,7 +31,7 @@ MileHigh::MileHigh(QObject *parent)
     connect(_timer, &QTimer::timeout,
             this, &MileHigh::tick);
 
-    _timer->start(1000);
+    _timer->start(200);
 }
 
 bool MileHigh::initialize(){
@@ -49,7 +50,7 @@ void MileHigh::tick(){
     }
     if (_status == Status::RUNNING){
         // Refresh all data
-        qDebug() << "Refreshing data...";
+        //qDebug() << "Refreshing data...";
         requestData();
     }
 }
@@ -61,6 +62,12 @@ void MileHigh::addPlane(Plane *plane){
 
 void MileHigh::addObstacle(Obstacle *ob){
     addItem(ob);
+}
+
+void MileHigh::setPlanesDirty(){
+    foreach(Plane* plane, _planes){
+        plane->setDirty();
+    }
 }
 
 /*
@@ -143,7 +150,7 @@ void MileHigh::recievedToken(QJsonDocument* doc){
 }
 void MileHigh::recievedGet(QJsonDocument* doc){
     doc->object();
-    qDebug() << "Fleet data recieved.";
+    //qDebug() << "Fleet data recieved.";
     //qDebug() << doc->toJson(QJsonDocument::Indented);
 
     // Boundary
@@ -156,6 +163,7 @@ void MileHigh::recievedGet(QJsonDocument* doc){
                         QPointF(max.value("x").toDouble(),
                                 max.value("y").toDouble()));
         setSceneRect(boundary);
+        views().first()->fitInView(boundary);
     }
 
     // Runway
@@ -163,7 +171,7 @@ void MileHigh::recievedGet(QJsonDocument* doc){
         QJsonObject runwayData = doc->object().value("runway").toObject();
         auto x = runwayData.value("x").toDouble();
         auto y = runwayData.value("y").toDouble();
-        qDebug() << "runway at " << x << y;
+        //qDebug() << "runway at " << x << y;
     }
 
     // Directions
@@ -175,6 +183,8 @@ void MileHigh::recievedGet(QJsonDocument* doc){
     {
         // First of all, we have to clear all the obstacles and replace them
         _obstacles.clear();
+        // And make all the planes dirty so we can remove them if they disappear!
+        setPlanesDirty();
 
         QJsonArray objectsData = doc->object().value("objects").toArray();
         foreach (QJsonValue objectValue, objectsData){
@@ -185,7 +195,6 @@ void MileHigh::recievedGet(QJsonDocument* doc){
 
                 if (!_planes.contains(id)){
                     Plane* plane = Plane::fromJson(objectData);
-                    qDebug() << "NEW PLANE: " << plane->id();
                     addPlane(plane);
                     continue;
                 }
@@ -210,6 +219,17 @@ void MileHigh::recievedGet(QJsonDocument* doc){
             } else {
                 qWarning() << qPrintable("> Unknown object type of [" + type + "]");
             }
+        }
+
+        // Dirty planes! :O
+        foreach(Plane* plane, _planes){
+            if (!plane->dirty()) continue;
+
+            // Goodbye little plane
+            _planes.remove(plane->id());
+            removeItem(plane);
+            delete plane;
+            plane = 0;
         }
     }
 }

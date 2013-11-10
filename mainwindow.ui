@@ -31,7 +31,29 @@
      <number>0</number>
     </property>
     <item>
-     <widget class="QGraphicsView" name="graphicsView"/>
+     <widget class="QGraphicsView" name="graphicsView">
+      <property name="frameShape">
+       <enum>QFrame::NoFrame</enum>
+      </property>
+      <property name="lineWidth">
+       <number>0</number>
+      </property>
+      <property name="verticalScrollBarPolicy">
+       <enum>Qt::ScrollBarAlwaysOff</enum>
+      </property>
+      <property name="horizontalScrollBarPolicy">
+       <enum>Qt::ScrollBarAlwaysOff</enum>
+      </property>
+      <property name="interactive">
+       <bool>false</bool>
+      </property>
+      <property name="renderHints">
+       <set>QPainter::HighQualityAntialiasing</set>
+      </property>
+      <property name="viewportUpdateMode">
+       <enum>QGraphicsView::FullViewportUpdate</enum>
+      </property>
+     </widget>
     </item>
    </layout>
   </widget>
