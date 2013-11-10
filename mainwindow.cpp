@@ -11,6 +11,7 @@ MainWindow::MainWindow(QWidget *parent) :
     MileHigh* app = new MileHigh(this);
     // Connect our scene into a view so we can see the action!
     ui->graphicsView->setScene(app);
+    ui->graphicsView->viewport()->setAutoFillBackground(false);
     app->initialize();
 }
 

@@ -14,6 +14,10 @@ public:
         return _id;
     }
 
+    QPointF waypoint() const {
+        return _waypoint;
+    }
+
     void updateData(QJsonObject objectData){
         _name = objectData.value("name").toString();
         _penalty = objectData.value("penalty").toDouble();
@@ -24,7 +28,9 @@ public:
         _collisionRadius = objectData.value("collision_radius").toDouble();
         _graphicFile = objectData.value("graphic").toString();
         _graphicPath = objectData.value("graphic_full_path").toString();
-        _waypoint = objectData.value("waypoint").toObject();
+        QJsonObject waypointData = objectData.value("waypoint").toObject();
+
+        _waypoint = QPointF(waypointData.value("x").toDouble(), waypointData.value("y").toDouble());
 
         QJsonObject positionData = objectData.value("position").toObject();
         QPointF position(positionData.value("x").toDouble(),
@@ -65,7 +71,7 @@ private:
     double _collisionRadius;
     QString _graphicFile;
     QString _graphicPath;
-    QJsonObject _waypoint;
+    QPointF _waypoint;
 
     bool _dirty;
 signals:

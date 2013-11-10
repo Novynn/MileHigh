@@ -16,12 +16,14 @@ SOURCES += main.cpp\
         mainwindow.cpp \
     milehigh.cpp \
     objects/plane.cpp \
-    objects/obstacle.cpp
+    objects/obstacle.cpp \
+    objects/runway.cpp
 
 HEADERS  += mainwindow.h \
     milehigh.h \
     objects/plane.h \
-    objects/obstacle.h
+    objects/obstacle.h \
+    objects/runway.h
 
 FORMS    += mainwindow.ui
 

@@ -10,6 +10,7 @@
 #include <QUrlQuery>
 #include <QGraphicsView>
 
+#include "objects/runway.h"
 #include "objects/plane.h"
 #include "objects/obstacle.h"
 
@@ -22,6 +23,7 @@ MileHigh::MileHigh(QObject *parent)
     : QGraphicsScene(parent)
     , _net(new QNetworkAccessManager(this))
     , _timer(new QTimer(this))
+    , _runway(0)
 {
     _token = "";
     _status = Status::IDLE;
@@ -52,6 +54,10 @@ void MileHigh::tick(){
         // Refresh all data
         //qDebug() << "Refreshing data...";
         requestData();
+    }
+
+    if (selectedItems().count() == 0){
+        qDebug() << selectedItems();
     }
 }
 
@@ -101,6 +107,21 @@ void MileHigh::sendData(){
     query.addQueryItem("token", _token);
 
     _net->post(request, query.toString().toLatin1());
+}
+
+void MileHigh::drawBackground(QPainter *painter, const QRectF &rect){
+    QGraphicsScene::drawBackground(painter, rect);
+    painter->setBrush(Qt::white);
+    painter->drawRect(sceneRect());
+}
+
+void MileHigh::drawForeground(QPainter *painter, const QRectF &rect){
+    QGraphicsScene::drawForeground(painter, rect);
+    foreach(Plane* plane, _planes){
+        if (!plane->waypoint().isNull()){
+            painter->drawLine(plane->pos(), plane->waypoint());
+        }
+    }
 }
 
 /*
@@ -163,7 +184,7 @@ void MileHigh::recievedGet(QJsonDocument* doc){
                         QPointF(max.value("x").toDouble(),
                                 max.value("y").toDouble()));
         setSceneRect(boundary);
-        views().first()->fitInView(boundary);
+        views().first()->fitInView(boundary, Qt::KeepAspectRatio);
     }
 
     // Runway
@@ -171,7 +192,13 @@ void MileHigh::recievedGet(QJsonDocument* doc){
         QJsonObject runwayData = doc->object().value("runway").toObject();
         auto x = runwayData.value("x").toDouble();
         auto y = runwayData.value("y").toDouble();
-        //qDebug() << "runway at " << x << y;
+
+        if (_runway == 0){
+            _runway = new Runway();
+            addItem(_runway);
+        }
+        _runway->setPos(x, y);
+        _runway->setRect(-8, 0, 16, 32);
     }
 
     // Directions

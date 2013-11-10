@@ -45,10 +45,13 @@
        <enum>Qt::ScrollBarAlwaysOff</enum>
       </property>
       <property name="interactive">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <property name="renderHints">
        <set>QPainter::HighQualityAntialiasing</set>
+      </property>
+      <property name="dragMode">
+       <enum>QGraphicsView::RubberBandDrag</enum>
       </property>
       <property name="viewportUpdateMode">
        <enum>QGraphicsView::FullViewportUpdate</enum>

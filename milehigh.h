@@ -11,6 +11,7 @@ class QNetworkAccessManager;
 class QNetworkReply;
 class Obstacle;
 class Plane;
+class Runway;
 
 class MileHigh : public QGraphicsScene
 {
@@ -38,6 +39,9 @@ public:
     QString token(){
         return _token;
     }
+protected:
+    void drawBackground(QPainter *painter, const QRectF &rect);
+    void drawForeground(QPainter *painter, const QRectF &rect);
 private:
     QNetworkAccessManager* _net;
     QTimer* _timer;
@@ -54,6 +58,7 @@ private:
 
     void setPlanesDirty();
 
+    Runway* _runway;
     QList<Obstacle*> _obstacles;
     QMap<int, Plane*> _planes;
 
