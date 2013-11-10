@@ -9,6 +9,8 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     MileHigh* app = new MileHigh(this);
+    // Connect our scene into a view so we can see the action!
+    ui->graphicsView->setScene(app);
     app->initialize();
 }
 

@@ -9,6 +9,9 @@
 #include <QTimer>
 #include <QUrlQuery>
 
+#include "objects/plane.h"
+#include "objects/obstacle.h"
+
 const QString MileHigh::BASE_URL       = "http://challenge.hacktivate.me:3000";
 const QString MileHigh::GET_URL        = BASE_URL + "/get";
 const QString MileHigh::POST_URL       = BASE_URL + "/post";
@@ -49,6 +52,15 @@ void MileHigh::tick(){
         qDebug() << "Refreshing data...";
         requestData();
     }
+}
+
+void MileHigh::addPlane(Plane *plane){
+    _planes.insert(plane->id(), plane);
+    addItem(plane);
+}
+
+void MileHigh::addObstacle(Obstacle *ob){
+    addItem(ob);
 }
 
 /*
@@ -161,34 +173,27 @@ void MileHigh::recievedGet(QJsonDocument* doc){
 
     // Objects
     {
+        // First of all, we have to clear all the obstacles and replace them
+        _obstacles.clear();
+
         QJsonArray objectsData = doc->object().value("objects").toArray();
         foreach (QJsonValue objectValue, objectsData){
             QJsonObject objectData = objectValue.toObject();
-            QString type = objectData.value("type").toString();
-            if (type == "Plane"){
-                /*
-                    "collision_radius": 25,
-                    "fuel": 100,
-                    "graphic": "plane1.png",
-                    "graphic_full_path": "player1/plane1.png",
-                    "id": 1000,
-                    "name": "CESNA",
-                    "penalty": 5,
-                    "points": 10,
-                    "position": {
-                        "x": 60.38437768806125,
-                        "y": 1011.0460834063679
-                    },
-                    "rotation": 112.34266115818173,
-                    "speed": 20,
-                    "turn_speed": 30,
-                    "type": "plane",
-                    "waypoint": null
-                    */
-
+            QString type = objectData.value("type").toString().toLower();
+            if (type == "plane"){
                 auto id = objectData.value("id").toDouble();
-                QString name = objectData.value("name").toString();
-            } else if (type == "Obstacle") {
+
+                if (!_planes.contains(id)){
+                    Plane* plane = Plane::fromJson(objectData);
+                    qDebug() << "NEW PLANE: " << plane->id();
+                    addPlane(plane);
+                    continue;
+                }
+                Plane* plane = _planes.value(id);
+                if (plane != 0){
+                    plane->updateData(objectData);
+                }
+            } else if (type == "obstacle") {
                 QJsonObject boundaryData = objectData.value("boundary").toObject();
                 QJsonObject min = boundaryData.value("min").toObject();
                 QJsonObject max = boundaryData.value("max").toObject();
@@ -198,6 +203,10 @@ void MileHigh::recievedGet(QJsonDocument* doc){
                                         max.value("y").toDouble()));
                 // TODO: Check if it already exists
                 // TODO: Update boundary
+                Obstacle* obstacle = new Obstacle();
+                obstacle->setPos(boundary.topLeft());
+                obstacle->setRect(boundary.normalized());
+                addObstacle(obstacle);
             } else {
                 qWarning() << qPrintable("> Unknown object type of [" + type + "]");
             }

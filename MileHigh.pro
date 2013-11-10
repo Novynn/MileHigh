@@ -14,10 +14,14 @@ TEMPLATE = app
 
 SOURCES += main.cpp\
         mainwindow.cpp \
-    milehigh.cpp
+    milehigh.cpp \
+    objects/plane.cpp \
+    objects/obstacle.cpp
 
 HEADERS  += mainwindow.h \
-    milehigh.h
+    milehigh.h \
+    objects/plane.h \
+    objects/obstacle.h
 
 FORMS    += mainwindow.ui
 

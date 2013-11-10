@@ -4,9 +4,13 @@
 #include <QByteArray>
 #include <QGraphicsScene>
 #include <QDebug>
+#include <QMap>
+#include <QList>
 class QTimer;
 class QNetworkAccessManager;
 class QNetworkReply;
+class Obstacle;
+class Plane;
 
 class MileHigh : public QGraphicsScene
 {
@@ -45,6 +49,11 @@ private:
     void recievedGet(QJsonDocument* doc);
     void recievedPost(QJsonDocument* doc);
 
+    void addPlane(Plane* plane);
+    void addObstacle(Obstacle* ob);
+
+    QList<Obstacle*> _obstacles;
+    QMap<int, Plane*> _planes;
 
 private slots:
     void tick();
