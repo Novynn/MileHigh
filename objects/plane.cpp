@@ -17,15 +17,21 @@ void Plane::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWi
     QPen pen(Qt::black);
     pen.setWidth(isSelected() ? 3 : 1);
     painter->setPen(pen);
-    painter->setBrush(Qt::blue);
+    if (_crashing){
+        painter->setBrush(Qt::red);
+    } else if (_landing) {
+        painter->setBrush(Qt::green);
+    } else {
+        painter->setBrush(Qt::blue);
+    }
     painter->drawEllipse(QPointF(0, 0), _collisionRadius, _collisionRadius);
 
     auto distance = _collisionRadius;
     auto angle = rotation();
 
     const qreal DEGTORAD = M_PI/180;
-    qreal x1 = distance * 0.7 * qCos(angle * DEGTORAD);
-    qreal y1 = distance * 0.7 * qSin(angle * DEGTORAD);
+    qreal x1 = distance * 0.5 * qCos(angle * DEGTORAD);
+    qreal y1 = distance * 0.5 * qSin(angle * DEGTORAD);
     qreal x2 = distance * qCos(angle * DEGTORAD);
     qreal y2 = distance * qSin(angle * DEGTORAD);
 

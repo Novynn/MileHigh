@@ -13,6 +13,7 @@ class QNetworkReply;
 class Obstacle;
 class Plane;
 class Runway;
+class Waypoint;
 
 class MileHigh : public QGraphicsScene
 {
@@ -38,6 +39,10 @@ public:
     void requestData();
     void sendData();
 
+
+    void generateWaypoints();
+    void regenerateWaypoints();
+
     QString token(){
         return _token;
     }
@@ -45,6 +50,8 @@ public:
     QJsonDocument directionsDoc() const {
         return _directionsDoc;
     }
+    void updatePlanes();
+    void spawnWaypoint(QPointF pos, int direction, Waypoint *parent);
 protected:
     void drawBackground(QPainter *painter, const QRectF &rect);
     void drawForeground(QPainter *painter, const QRectF &rect);
@@ -70,6 +77,8 @@ private:
     QJsonDocument _directionsDoc;
 
     Runway* _runway;
+    Waypoint* _runwayWaypoint;
+    Waypoint* _landWaypoint;
     QList<Obstacle*> _obstacles;
     QMap<int, Plane*> _planes;
 

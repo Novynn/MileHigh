@@ -14,6 +14,7 @@
 #include "objects/runway.h"
 #include "objects/plane.h"
 #include "objects/obstacle.h"
+#include "objects/waypoint.h"
 
 const QString MileHigh::BASE_URL       = "http://challenge.hacktivate.me:3000";
 const QString MileHigh::GET_URL        = BASE_URL + "/get";
@@ -34,7 +35,7 @@ MileHigh::MileHigh(QObject *parent)
     connect(_timer, &QTimer::timeout,
             this, &MileHigh::tick);
 
-    _timer->start(1000);
+    _timer->start(200);
 }
 
 bool MileHigh::initialize(){
@@ -56,6 +57,9 @@ void MileHigh::tick(){
         //qDebug() << "Refreshing data...";
         requestData();
 
+
+        updatePlanes();
+
         // Post all new data
         sendData();
     }
@@ -65,8 +69,26 @@ void MileHigh::tick(){
 //    }
 }
 
+void MileHigh::updatePlanes(){
+    foreach(Plane* plane, _planes){
+        if (plane->waypointQueue().isEmpty()) continue;
+        // THIS IS BROKEN FOR SOME REASON. HAVE TO REDO WAYPOINT CODE
+        //bool atWaypoint = plane->collidesWithItem(plane->currentWaypoint());
+        bool atWaypoint = QLineF(plane->pos(), plane->currentWaypoint()->pos()).length() < 20;
+        if (atWaypoint){
+            if (plane->currentWaypoint() == _runwayWaypoint){
+                plane->enqueueWaypoint(_landWaypoint);
+                plane->dequeueWaypoint();
+                return;
+            }
+            plane->dequeueWaypoint();
+        }
+    }
+}
+
 void MileHigh::addPlane(Plane *plane){
     _planes.insert(plane->id(), plane);
+    plane->enqueueWaypoint(Waypoint::nearest(plane->pos()));
     addItem(plane);
 }
 
@@ -78,6 +100,74 @@ void MileHigh::setPlanesDirty(){
     foreach(Plane* plane, _planes){
         plane->setDirty();
     }
+}
+
+void MileHigh::generateWaypoints(){
+    const double BUFFER = 100.0;
+    int resolution = 50;
+    foreach(Plane* plane, _planes){
+        if (plane->radius() > resolution)
+            resolution = plane->radius();
+    }
+
+    QPointF point = _runwayWaypoint->pos();
+    point.setY(point.y() - 100);
+    spawnWaypoint(point, -1, _runwayWaypoint);
+}
+
+/*
+ *           0     3
+ *            \   /
+ *             \ /
+ *              *
+ *             / \
+ *            /   \
+ *           2     1
+ *
+ */
+
+void MileHigh::spawnWaypoint(QPointF pos, int direction, Waypoint* parent){
+    if (!sceneRect().contains(pos)) return;
+    if (pos.x() == sceneRect().left() || pos.x() == sceneRect().right()) return;
+    if (pos.y() == sceneRect().top() || pos.y() == sceneRect().bottom()) return;
+    QList<QGraphicsItem*> points = items(pos);
+    if (points.count() > 1){
+        return;
+    }
+    Waypoint* waypoint = Waypoint::create(pos.x(), pos.y());
+    waypoint->connect(parent);
+    addItem(waypoint);
+    if (direction == 0){
+        spawnWaypoint(QPointF(pos.x() - 50, pos.y() - 50), 0, waypoint);
+    }
+    if (direction == 1){
+        spawnWaypoint(QPointF(pos.x() + 50, pos.y() + 50), 1, waypoint);
+    }
+    if (direction == 2){
+        spawnWaypoint(QPointF(pos.x() - 50, pos.y() - 50), 0, waypoint);
+        spawnWaypoint(QPointF(pos.x() + 50, pos.y() + 50), 1, waypoint);
+        spawnWaypoint(QPointF(pos.x() - 50, pos.y() + 50), 2, waypoint);
+    }
+    if (direction == 3){
+        spawnWaypoint(QPointF(pos.x() - 50, pos.y() - 50), 0, waypoint);
+        spawnWaypoint(QPointF(pos.x() + 50, pos.y() + 50), 1, waypoint);
+        spawnWaypoint(QPointF(pos.x() + 50, pos.y() - 50), 3, waypoint);
+    }
+    if (direction == -1){
+        spawnWaypoint(QPointF(pos.x() - 50, pos.y() - 50), 0, waypoint);
+        spawnWaypoint(QPointF(pos.x() + 50, pos.y() + 50), 1, waypoint);
+        spawnWaypoint(QPointF(pos.x() - 50, pos.y() + 50), 2, waypoint);
+        spawnWaypoint(QPointF(pos.x() + 50, pos.y() - 50), 3, waypoint);
+    }
+}
+
+void MileHigh::regenerateWaypoints(){
+    foreach(Waypoint* waypoint, Waypoint::all()){
+        Waypoint::all().removeOne(waypoint);
+        delete waypoint;
+        waypoint = 0;
+    }
+    generateWaypoints();
 }
 
 /*
@@ -105,13 +195,13 @@ void MileHigh::requestData(){
 void MileHigh::sendData(){
     QJsonArray directions;
     foreach(Plane* plane, _planes){
-        if (plane->directedWaypoint().isNull()) continue;
+        if (plane->waypointQueue().isEmpty()) continue;
 
         QJsonObject direction;
         direction.insert("plane_id", plane->id());
         QJsonObject waypoint;
-        waypoint.insert("x", plane->directedWaypoint().x());
-        waypoint.insert("y", plane->directedWaypoint().y());
+        waypoint.insert("x", plane->currentWaypoint()->pos().x());
+        waypoint.insert("y", plane->currentWaypoint()->pos().y());
         direction.insert("waypoint", waypoint);
         directions.append(direction);
     }
@@ -146,28 +236,55 @@ void MileHigh::drawForeground(QPainter *painter, const QRectF &rect){
         painter->drawText(plane->scenePos().x() +40,
                           plane->scenePos().y(),
                           plane->name());
-        if (plane->flightPath().isEmpty()){
-            painter->setPen(Qt::yellow);
+        painter->drawText(plane->scenePos().x() + 40,
+                          plane->scenePos().y() + 20,
+                          QString::number(plane->fuel()));
+//        if (plane->flightPath().isEmpty()){
+//            painter->setPen(Qt::yellow);
 
-            QPainterPath _flightPath = QPainterPath(plane->scenePos());
+//            QPainterPath _flightPath = QPainterPath(plane->scenePos());
 
-            QLineF line(plane->scenePos(), plane->directedWaypoint());
-            QLineF line2 = line.normalVector();
-            line2.translate(-(line2.p1() - line.pointAt(0.5)));
-            line2.setLength(line2.length() / 2);
+//            QLineF line(plane->scenePos(), plane->directedWaypoint());
+//            QLineF line2 = line.normalVector();
+//            line2.translate(-(line2.p1() - line.pointAt(0.5)));
+//            line2.setLength(line2.length() / 2);
 
-            _flightPath.cubicTo(line2.p2(), line2.p2(), plane->directedWaypoint());
-            painter->drawLine(line2);
-            painter->drawPath(_flightPath);
-        }
+//            _flightPath.cubicTo(line2.p2(), line2.p2(), plane->directedWaypoint());
+//            painter->drawLine(line2);
+//            painter->drawPath(_flightPath);
+//        }
         if (!plane->waypoint().isNull()){
             painter->setPen(Qt::blue);
             painter->drawLine(plane->scenePos(), plane->waypoint());
         }
-        if (!plane->directedWaypoint().isNull()){
+        if (!plane->waypointQueue().isEmpty()){
             painter->setPen(Qt::darkBlue);
-            painter->drawLine(plane->scenePos(), plane->directedWaypoint());
+            painter->drawLine(plane->scenePos(), plane->currentWaypoint()->pos());
         }
+    }
+    painter->setPen(Qt::black);
+    foreach(Waypoint* waypoint, Waypoint::all()){
+        if (waypoint->available()){
+            painter->setOpacity(0.5);
+            painter->setBrush(Qt::yellow);
+            painter->setPen(Qt::transparent);
+            painter->drawRect(waypoint->boundingRect());
+            painter->setOpacity(1.0);
+        }
+        else {
+            painter->setBrush(Qt::red);
+        }
+        painter->setPen(Qt::black);
+        if (waypoint->available()){
+            foreach(Waypoint* connected, waypoint->waypoints()){
+                if (!connected) continue;
+                if (connected->available()){
+                    painter->drawLine(waypoint->scenePos(), connected->scenePos());
+                }
+            }
+        }
+        painter->drawEllipse(waypoint->scenePos(), 5, 5);
+
     }
 }
 
@@ -178,12 +295,18 @@ void MileHigh::mousePressEvent(QGraphicsSceneMouseEvent *event){
         foreach(QGraphicsItem* item, selectedItems()){
             Plane* plane = dynamic_cast<Plane*>(item);
             if (plane){
-                plane->setDirectedWaypoint(event->scenePos());
+                plane->enqueueWaypoint(Waypoint::nearest(event->scenePos()));
             }
             selectedPlanes.append(plane);
         }
         event->accept();
     }
+//    if (event->button() == Qt::LeftButton){
+//        Waypoint* waypoint = Waypoint::nearest(event->scenePos().x(), event->scenePos().y());
+//        if (waypoint){
+//            waypoint->setAvailable(!waypoint->available());
+//        }
+//    }
     QGraphicsScene::mousePressEvent(event);
 }
 
@@ -241,12 +364,10 @@ void MileHigh::recievedToken(QJsonDocument* doc){
     _token = token;
 }
 void MileHigh::recievedGet(QJsonDocument* doc){
-    doc->object();
-    //qDebug() << "Fleet data recieved.";
-    //qDebug() << doc->toJson(QJsonDocument::Indented);
+    bool initialize = sceneRect().isEmpty();
 
-    // Boundary
-    {
+    if (initialize){
+        // Boundary
         QJsonObject boundaryData = doc->object().value("boundary").toObject();
         QJsonObject max = boundaryData.value("max").toObject();
         QJsonObject min = boundaryData.value("min").toObject();
@@ -256,20 +377,25 @@ void MileHigh::recievedGet(QJsonDocument* doc){
                                 max.value("y").toDouble()));
         setSceneRect(boundary);
         views().first()->fitInView(boundary, Qt::KeepAspectRatio);
-    }
 
-    // Runway
-    {
+        // Runway
         QJsonObject runwayData = doc->object().value("runway").toObject();
         auto x = runwayData.value("x").toDouble();
         auto y = runwayData.value("y").toDouble();
 
         if (_runway == 0){
             _runway = new Runway();
+            _runwayWaypoint = Waypoint::create(x, y + 50);
+            _landWaypoint = Waypoint::create(x, y);
+            _runwayWaypoint->connect(_landWaypoint);
+            addItem(_runwayWaypoint);
+            addItem(_landWaypoint);
             addItem(_runway);
         }
         _runway->setPos(x, y);
         _runway->setRect(-32, -64, 64, 128);
+
+        generateWaypoints();
     }
 
     // Directions

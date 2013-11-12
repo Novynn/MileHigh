@@ -13,18 +13,22 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-        mainwindow.cpp \
     milehigh.cpp \
     objects/plane.cpp \
     objects/obstacle.cpp \
-    objects/runway.cpp
+    objects/runway.cpp \
+    mainwindow.cpp \
+    objects/waypoint.cpp
 
-HEADERS  += mainwindow.h \
+HEADERS  += \
     milehigh.h \
     objects/plane.h \
     objects/obstacle.h \
-    objects/runway.h
+    objects/runway.h \
+    mainwindow.h \
+    objects/waypoint.h
 
-FORMS    += mainwindow.ui
+FORMS    += \
+    mainwindow.ui
 
 QMAKE_CXXFLAGS += -std=c++11

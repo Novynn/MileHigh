@@ -1,23 +1,38 @@
 #include "mainwindow.h"
-#include "ui_mainwindow.h"
-
+#include <QGraphicsView>
 #include "milehigh.h"
 
 MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent),
-    ui(new Ui::MainWindow)
+    QMainWindow(parent)
 {
-    ui->setupUi(this);
-    MileHigh* app = new MileHigh(this);
-    // Connect our scene into a view so we can see the action!
-    ui->graphicsView->setScene(app);
-    ui->graphicsView->viewport()->setAutoFillBackground(false);
-    connect(app, &MileHigh::directionsDataChanged,
-            ui->textEdit, &QTextEdit::setPlainText);
+    setupUi(this);
+
+    QGraphicsView* view = new QGraphicsView(this);
+    view->setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+    view->setDragMode(QGraphicsView::RubberBandDrag);
+    MileHigh* app = new MileHigh(view);
+    view->setScene(app);
     app->initialize();
+
+    centralWidget()->layout()->addWidget(view);
 }
 
-MainWindow::~MainWindow()
+void MainWindow::newTab(){
+//    QDockWidget* widget = new QDockWidget("Tab");
+
+
+//    QGraphicsView* view = new QGraphicsView(widget);
+//    view->setDragMode(QGraphicsView::RubberBandDrag);
+//    MileHigh* app = new MileHigh(view);
+//    view->setScene(app);
+//    app->initialize();
+
+//    widget->setWidget(view);
+//    addDockWidget(Qt::LeftDockWidgetArea, widget);
+//    tabifyDockWidget(tabWidget, widget);
+}
+
+void MainWindow::on_pushButton_clicked()
 {
-    delete ui;
+    newTab();
 }

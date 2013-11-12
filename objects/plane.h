@@ -3,6 +3,8 @@
 
 #include <QGraphicsItem>
 #include <QJsonObject>
+#include <QQueue>
+#include "objects/waypoint.h"
 #include "qmath.h"
 
 class Plane : public QGraphicsItem
@@ -18,12 +20,22 @@ public:
         return _name;
     }
 
+    double fuel() const {
+        return _fuel;
+    }
+
+    double radius() const {
+        return _collisionRadius;
+    }
+
     void setWaypoint(QPointF waypoint) {
         _waypoint = waypoint;
     }
 
-    void setDirectedWaypoint(QPointF directedWaypoint){
-        _directedWaypoint = directedWaypoint;
+    void enqueueWaypoint(Waypoint* directedWaypoint){
+        if (!directedWaypoint->available()) return;
+        directedWaypoint->setAvailable(false);
+        _waypointQueue.enqueue(directedWaypoint);
         // Here we have to figure out a flight path (well not here later, but here for now)
 //        _flightPath = QPainterPath(scenePos());
 
@@ -35,12 +47,23 @@ public:
 //        _flightPath.cubicTo(line2.p2(), line2.p2(), _directedWaypoint);
     }
 
+    void dequeueWaypoint(){
+        Waypoint* waypoint = _waypointQueue.dequeue();
+        waypoint->setAvailable();
+    }
+
+    QQueue<Waypoint*> waypointQueue(){
+        return _waypointQueue;
+    }
+
     QPointF waypoint() const {
         return _waypoint;
     }
 
-    QPointF directedWaypoint() const {
-        return _directedWaypoint;
+    Waypoint* currentWaypoint() const {
+        if (!_waypointQueue.isEmpty())
+            return _waypointQueue.first();
+        return 0;
     }
 
     void updateData(QJsonObject objectData){
@@ -53,6 +76,8 @@ public:
         _collisionRadius = objectData.value("collision_radius").toDouble();
         _graphicFile = objectData.value("graphic").toString();
         _graphicPath = objectData.value("graphic_full_path").toString();
+        _landing = objectData.value("landing").toBool();
+        _crashing = objectData.value("crashing").toBool();
         QJsonObject waypointData = objectData.value("waypoint").toObject();
 
         _waypoint = QPointF(waypointData.value("x").toDouble(), waypointData.value("y").toDouble());
@@ -64,6 +89,12 @@ public:
         // Rotation needs a fix
         auto rotation = objectData.value("rotation").toDouble() - 90.0f;
         setRotation(rotation);
+
+        // No commands will be processed if they're landing or crashing
+        if (_landing || _crashing){
+            setSelected(false);
+            setFlag(QGraphicsItem::ItemIsSelectable, false);
+        }
 
         _dirty = false;
     }
@@ -98,10 +129,12 @@ private:
     double _turnSpeed;
     double _fuel;
     double _collisionRadius;
+    bool _landing;
+    bool _crashing;
     QString _graphicFile;
     QString _graphicPath;
     QPointF _waypoint;
-    QPointF _directedWaypoint;
+    QQueue<Waypoint*> _waypointQueue;
 
     QPainterPath _flightPath;
 
