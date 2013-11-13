@@ -18,6 +18,7 @@ MainWindow::MainWindow(QWidget *parent) :
 }
 
 void MainWindow::newTab(){
-    MileHighWidget* widget = new MileHighWidget(tabWidget);
+    MileHighWidget* widget = new MileHighWidget(this);
+    widget->setTableWidget(tableWidget);
     tabWidget->addTab(widget, "Tab");
 }

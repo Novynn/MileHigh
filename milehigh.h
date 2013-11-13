@@ -21,6 +21,8 @@ class MileHigh : public QGraphicsScene
 public:
     MileHigh(QObject* parent = 0);
 
+    static const QString STATIC_TOKEN;
+
     enum class Status {
         IDLE,
         INITIALIZING,

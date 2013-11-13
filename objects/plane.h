@@ -32,6 +32,10 @@ public:
         _waypoint = waypoint;
     }
 
+    bool operator<(const Plane other) const {
+        return fuel() < other.fuel();
+    }
+
     void enqueueWaypoint(Waypoint* directedWaypoint){
         if (!directedWaypoint->available()) return;
         directedWaypoint->setAvailable(false);
@@ -50,6 +54,11 @@ public:
     void dequeueWaypoint(){
         Waypoint* waypoint = _waypointQueue.dequeue();
         waypoint->setAvailable();
+    }
+
+    void replaceWaypoint(Waypoint* waypoint, Waypoint* replacement){
+        int waypointIndex = _waypointQueue.indexOf(waypoint);
+        _waypointQueue.replace(waypointIndex, replacement);
     }
 
     QQueue<Waypoint*> waypointQueue(){
@@ -94,6 +103,9 @@ public:
         if (_landing || _crashing){
             setSelected(false);
             setFlag(QGraphicsItem::ItemIsSelectable, false);
+            foreach(Waypoint* waypoint, _waypointQueue){
+                dequeueWaypoint();
+            }
         }
 
         _dirty = false;

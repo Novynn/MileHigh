@@ -21,13 +21,16 @@ const QString MileHigh::GET_URL        = BASE_URL + "/get";
 const QString MileHigh::POST_URL       = BASE_URL + "/post";
 const QString MileHigh::SESSION_URL    = BASE_URL + "/new-session";
 
+//const QString MileHigh::STATIC_TOKEN;
+const QString MileHigh::STATIC_TOKEN = "766004b9ab59";
+
 MileHigh::MileHigh(QObject *parent)
     : QGraphicsScene(parent)
     , _net(new QNetworkAccessManager(this))
     , _timer(new QTimer(this))
     , _runway(0)
 {
-    _token = "";
+    _token = STATIC_TOKEN.isEmpty() ? "" : STATIC_TOKEN;
     _status = Status::IDLE;
 
     connect(_net, &QNetworkAccessManager::finished,
@@ -41,7 +44,13 @@ MileHigh::MileHigh(QObject *parent)
 bool MileHigh::initialize(){
     qDebug() << "Initializing connection to the server.";
     _status = Status::INITIALIZING;
-    requestToken();
+    if (_token.isEmpty()){
+        qDebug() << "Requesting new token...";
+        requestToken();
+    }
+    else {
+        qDebug() << "Token provided, skipping asking for a new one.";
+    }
     return true;
 }
 
@@ -59,9 +68,12 @@ void MileHigh::tick(){
 
 
         updatePlanes();
+        invalidate(QRectF(), QGraphicsScene::ForegroundLayer);
 
         // Post all new data
         sendData();
+
+
     }
 
     emit updated();
@@ -72,25 +84,44 @@ void MileHigh::tick(){
 }
 
 void MileHigh::updatePlanes(){
-    foreach(Plane* plane, _planes){
+    QList<Plane*> sortedPlanes = _planes.values();
+    qSort(sortedPlanes.begin(), sortedPlanes.end());
+    foreach(Plane* plane, sortedPlanes){
         if (plane->waypointQueue().isEmpty()) continue;
         // THIS IS BROKEN FOR SOME REASON. HAVE TO REDO WAYPOINT CODE
         //bool atWaypoint = plane->collidesWithItem(plane->currentWaypoint());
         bool atWaypoint = QLineF(plane->pos(), plane->currentWaypoint()->pos()).length() < 20;
         if (atWaypoint){
             if (plane->currentWaypoint() == _runwayWaypoint){
+                while(plane->currentWaypoint() != 0){
+                    plane->dequeueWaypoint();
+                }
+
+                qDebug() << "Plane: " << plane->name() << " is now moving into landing...";
                 plane->enqueueWaypoint(_landWaypoint);
-                plane->dequeueWaypoint();
                 return;
             }
-            plane->dequeueWaypoint();
+            QList<Waypoint*> waypoints = plane->currentWaypoint()->waypoints();
+            QList<Waypoint*> availableWaypoints;
+            foreach(Waypoint* waypoint, waypoints){
+                if (waypoint->available())
+                    availableWaypoints.append(waypoint);
+            }
+            if (!availableWaypoints.isEmpty()){
+                plane->dequeueWaypoint();
+                plane->enqueueWaypoint(availableWaypoints.first());
+            }
         }
     }
 }
 
 void MileHigh::addPlane(Plane *plane){
     _planes.insert(plane->id(), plane);
-    plane->enqueueWaypoint(Waypoint::nearest(plane->pos()));
+    QList<Waypoint*> ignore;
+    ignore << _runwayWaypoint;
+    ignore << _landWaypoint;
+    Waypoint* w = Waypoint::nearest(plane->pos(), ignore);
+    plane->enqueueWaypoint(w);
     addItem(plane);
 }
 
@@ -105,18 +136,34 @@ void MileHigh::setPlanesDirty(){
 }
 
 void MileHigh::generateWaypoints(){
-    const double BUFFER = 100.0;
-    int resolution = 50;
+    int resolution = 200;
     foreach(Plane* plane, _planes){
         if (plane->radius() > resolution)
             resolution = plane->radius();
     }
 
-    QPointF point = _runwayWaypoint->pos();
-    point.setY(point.y() - 100);
-    spawnWaypoint(point, -1, _runwayWaypoint);
+    QRectF rect = QRectF(sceneRect().toRect().marginsRemoved(QMargins(resolution,
+                                                              resolution,
+                                                              resolution,
+                                                              resolution)));
 
-    // Once that's done
+    int minAngle = -45;
+    int maxAngle = 180 + 45;
+
+    int step = 30;
+
+    int minRadius = 150;
+    int maxRadius = 800;
+    int radiusStep = 300;
+
+    Waypoint* parent = _runwayWaypoint;
+    for (int i = minAngle; i <= maxAngle; i += step){
+        QLineF line = QLineF::fromPolar(radiusStep, i);
+        line.translate(parent->pos());
+        if (!rect.contains(line.p2())) continue;
+        Waypoint* waypoint = Waypoint::create(line.p2());
+        waypoint->connect(parent);
+    }
 }
 
 /*
@@ -131,50 +178,25 @@ void MileHigh::generateWaypoints(){
  */
 
 void MileHigh::spawnWaypoint(QPointF pos, int direction, Waypoint* parent){
-    if (!sceneRect().contains(pos)) return;
-    if (pos.x() == sceneRect().left() || pos.x() == sceneRect().right()) return;
-    if (pos.y() == sceneRect().top() || pos.y() == sceneRect().bottom()) return;
-    QList<QGraphicsItem*> points = items(pos);
-    if (points.count() > 1){
-        return;
-    }
 
-    const int DISTANCE = 50;
-
-    Waypoint* waypoint = Waypoint::create(pos.x(), pos.y());
-    waypoint->connect(parent);
-    addItem(waypoint);
-    if (direction == 0){
-        spawnWaypoint(QPointF(pos.x() - DISTANCE, pos.y() - DISTANCE), 0, waypoint);
-    }
-    if (direction == 1){
-        spawnWaypoint(QPointF(pos.x() + DISTANCE, pos.y() + DISTANCE), 1, waypoint);
-    }
-    if (direction == 2){
-        spawnWaypoint(QPointF(pos.x() - DISTANCE, pos.y() - DISTANCE), 0, waypoint);
-        spawnWaypoint(QPointF(pos.x() + DISTANCE, pos.y() + DISTANCE), 1, waypoint);
-        spawnWaypoint(QPointF(pos.x() - DISTANCE, pos.y() + DISTANCE), 2, waypoint);
-    }
-    if (direction == 3){
-        spawnWaypoint(QPointF(pos.x() - DISTANCE, pos.y() - DISTANCE), 0, waypoint);
-        spawnWaypoint(QPointF(pos.x() + DISTANCE, pos.y() + DISTANCE), 1, waypoint);
-        spawnWaypoint(QPointF(pos.x() + DISTANCE, pos.y() - DISTANCE), 3, waypoint);
-    }
-    if (direction == -1){
-        spawnWaypoint(QPointF(pos.x() - DISTANCE, pos.y() - DISTANCE), 0, waypoint);
-        spawnWaypoint(QPointF(pos.x() + DISTANCE, pos.y() + DISTANCE), 1, waypoint);
-        spawnWaypoint(QPointF(pos.x() - DISTANCE, pos.y() + DISTANCE), 2, waypoint);
-        spawnWaypoint(QPointF(pos.x() + DISTANCE, pos.y() - DISTANCE), 3, waypoint);
-    }
 }
 
 void MileHigh::regenerateWaypoints(){
-    foreach(Waypoint* waypoint, Waypoint::all()){
-        Waypoint::all().removeOne(waypoint);
+    QList<Waypoint*> waypointList = Waypoint::all();
+    generateWaypoints();
+    foreach(Waypoint* waypoint, waypointList){
+        foreach(Plane* plane, _planes){
+            if (plane->waypointQueue().contains(waypoint)){
+                Waypoint* replacement = Waypoint::nearest(waypoint->pos(), waypointList);
+                plane->replaceWaypoint(waypoint, replacement);
+            }
+        }
+
+        Waypoint::remove(waypoint);
         delete waypoint;
         waypoint = 0;
     }
-    generateWaypoints();
+
 }
 
 /*
@@ -290,8 +312,14 @@ void MileHigh::drawForeground(QPainter *painter, const QRectF &rect){
                 }
             }
         }
-        painter->drawEllipse(waypoint->scenePos(), 5, 5);
-
+        int radius = 5;
+        if (waypoint == _landWaypoint){
+            radius = 20;
+        }
+        if (waypoint == _runwayWaypoint){
+            radius = 10;
+        }
+        painter->drawEllipse(waypoint->scenePos(), radius, radius);
     }
 }
 
@@ -308,12 +336,12 @@ void MileHigh::mousePressEvent(QGraphicsSceneMouseEvent *event){
         }
         event->accept();
     }
-//    if (event->button() == Qt::LeftButton){
-//        Waypoint* waypoint = Waypoint::nearest(event->scenePos().x(), event->scenePos().y());
-//        if (waypoint){
-//            waypoint->setAvailable(!waypoint->available());
-//        }
-//    }
+    if (event->button() == Qt::LeftButton
+            && event->modifiers() & Qt::ControlModifier){
+        Waypoint* waypoint = _runwayWaypoint;//Waypoint::nearest(event->scenePos());
+        Waypoint* newWaypoint = Waypoint::create(event->scenePos());
+        newWaypoint->connect(waypoint);
+    }
     QGraphicsScene::mousePressEvent(event);
 }
 
@@ -344,10 +372,14 @@ void MileHigh::serverReply(QNetworkReply *reply){
     }
 
     QJsonParseError error;
-    QJsonDocument doc = QJsonDocument::fromJson(reply->readAll(), &error);
+
+    QByteArray replyData = reply->readAll();
+
+    QJsonDocument doc = QJsonDocument::fromJson(replyData, &error);
     if (error.error != QJsonParseError::NoError){
         qWarning() << "An error has occured parsing the reply!";
         qWarning() << "> Error: " << error.errorString();
+        qWarning() << "> Data recieved: \n" << replyData;
         reply->deleteLater();
         return;
     }
@@ -392,7 +424,7 @@ void MileHigh::recievedGet(QJsonDocument* doc){
 
         if (_runway == 0){
             _runway = new Runway();
-            _runwayWaypoint = Waypoint::create(x, y + 50);
+            _runwayWaypoint = Waypoint::create(x, y - 100);
             _landWaypoint = Waypoint::create(x, y);
             _runwayWaypoint->connect(_landWaypoint);
             addItem(_runwayWaypoint);
@@ -451,6 +483,25 @@ void MileHigh::recievedGet(QJsonDocument* doc){
                 qWarning() << qPrintable("> Unknown object type of [" + type + "]");
             }
         }
+
+        // Obstacle Check
+//        foreach(Waypoint* waypoint, Waypoint::all()){
+//            QList<Waypoint*> connected = waypoint->waypoints();
+//            foreach(Waypoint* w, connected){
+//                QGraphicsLineItem* line = new QGraphicsLineItem(QLineF(waypoint->pos(), w->pos()));
+//                bool collides = false;
+//                foreach(Obstacle* obstacle, _obstacles){
+//                    if (line->collidesWithItem(obstacle)){
+//                        collides = true;
+//                        break;
+//                    }
+//                }
+//                waypoint->setAvailable(!collides);
+//                removeItem(line);
+//                delete line;
+//                line = 0;
+//            }
+//        }
 
         // Dirty planes! :O
         foreach(Plane* plane, _planes){

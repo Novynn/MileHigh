@@ -8,17 +8,24 @@
 #include <QLayout>
 #include <QSplitter>
 #include <QQueue>
-
+#include <QPushButton>
+#include <QTableWidgetItem>
+#include "objects/plane.h"
 
 MileHighWidget::MileHighWidget(QWidget *parent)
     : QWidget(parent)
-    , _treeWidget(new QTreeWidget(this))
+    , _textWidget(new QTextEdit(this))
     , _view(new QGraphicsView(this))
     , _app(new MileHigh(_view))
 {
     QSplitter* splitter = new QSplitter(this);
     splitter->addWidget(_view);
-    splitter->addWidget(_treeWidget);
+    QWidget* widget = new QWidget(this);
+    QPushButton* button = new QPushButton("Regenerate Waypoints", widget);
+    widget->setLayout(new QVBoxLayout(this));
+    widget->layout()->addWidget(_textWidget);
+    widget->layout()->addWidget(button);
+    splitter->addWidget(widget);
     QList<int> sizes;
     sizes << splitter->height();
     sizes << splitter->width() - splitter->height();
@@ -30,36 +37,31 @@ MileHighWidget::MileHighWidget(QWidget *parent)
     _view->setDragMode(QGraphicsView::RubberBandDrag);
     _view->setScene(_app);
 
+    connect(button, SIGNAL(clicked()), this, SLOT(buttonPushed()));
+
     connect(_app, SIGNAL(sceneRectChanged(QRectF)), this, SLOT(boundaryUpdate()));
     connect(splitter, SIGNAL(splitterMoved(int,int)), this, SLOT(boundaryUpdate()));
 
     connect(_app, SIGNAL(updated()), this, SLOT(sceneUpdated()));
 
     _app->initialize();
+}
 
-    _treeWidget->setHeaderLabel("Current Data");
-
+void MileHighWidget::buttonPushed(){
+    _app->regenerateWaypoints();
 }
 
 void MileHighWidget::sceneUpdated(){
-//    QJsonDocument data = _app->currentData();
-//    QQueue<QJsonObject> objectQueue;
-//    objectQueue.enqueue(data.object());
-//    bool top = true;
-//    while(!objectQueue.isEmpty()){
-//        QJsonObject object = objectQueue.dequeue();
-//        foreach(QString key, object->keys()){
-//            QJsonValue child = object->value(key);
-//            if (child.isObject()){
-//                QJsonObject childObject = child.toObject();
-//                objectQueue.enqueue(childObject);
-//            }
-//            QTreeWidgetItem* item = new QTreeWidgetItem(_treeWidget);
-
-//        }
-//        top = false;
-//    }
-
+    _textWidget->setText(_app->currentData().toJson(QJsonDocument::Indented));
+    _tableWidget->clear();
+    int row = 0;
+    foreach(Plane* plane, _app->planes().values()){
+        QTableWidgetItem* item = new QTableWidgetItem(plane->name());
+        _tableWidget->setItem(row, 0, item);
+        item = new QTableWidgetItem(QString::number(plane->fuel()));
+        _tableWidget->setItem(row, 1, item);
+        row++;
+    }
 }
 
 void MileHighWidget::resizeEvent(QResizeEvent *event){
