@@ -16,7 +16,7 @@
 #include "objects/obstacle.h"
 #include "objects/waypoint.h"
 
-const QString MileHigh::BASE_URL       = "http://challenge.hacktivate.me:3000";
+const QString MileHigh::BASE_URL       = "http://challenge.hacktivate.me";
 const QString MileHigh::GET_URL        = BASE_URL + "/get";
 const QString MileHigh::POST_URL       = BASE_URL + "/post";
 const QString MileHigh::SESSION_URL    = BASE_URL + "/new-session";
@@ -63,6 +63,8 @@ void MileHigh::tick(){
         // Post all new data
         sendData();
     }
+
+    emit updated();
 
 //    if (selectedItems().count() > 0){
 //        qDebug() << selectedItems();
@@ -113,6 +115,8 @@ void MileHigh::generateWaypoints(){
     QPointF point = _runwayWaypoint->pos();
     point.setY(point.y() - 100);
     spawnWaypoint(point, -1, _runwayWaypoint);
+
+    // Once that's done
 }
 
 /*
@@ -134,30 +138,33 @@ void MileHigh::spawnWaypoint(QPointF pos, int direction, Waypoint* parent){
     if (points.count() > 1){
         return;
     }
+
+    const int DISTANCE = 50;
+
     Waypoint* waypoint = Waypoint::create(pos.x(), pos.y());
     waypoint->connect(parent);
     addItem(waypoint);
     if (direction == 0){
-        spawnWaypoint(QPointF(pos.x() - 50, pos.y() - 50), 0, waypoint);
+        spawnWaypoint(QPointF(pos.x() - DISTANCE, pos.y() - DISTANCE), 0, waypoint);
     }
     if (direction == 1){
-        spawnWaypoint(QPointF(pos.x() + 50, pos.y() + 50), 1, waypoint);
+        spawnWaypoint(QPointF(pos.x() + DISTANCE, pos.y() + DISTANCE), 1, waypoint);
     }
     if (direction == 2){
-        spawnWaypoint(QPointF(pos.x() - 50, pos.y() - 50), 0, waypoint);
-        spawnWaypoint(QPointF(pos.x() + 50, pos.y() + 50), 1, waypoint);
-        spawnWaypoint(QPointF(pos.x() - 50, pos.y() + 50), 2, waypoint);
+        spawnWaypoint(QPointF(pos.x() - DISTANCE, pos.y() - DISTANCE), 0, waypoint);
+        spawnWaypoint(QPointF(pos.x() + DISTANCE, pos.y() + DISTANCE), 1, waypoint);
+        spawnWaypoint(QPointF(pos.x() - DISTANCE, pos.y() + DISTANCE), 2, waypoint);
     }
     if (direction == 3){
-        spawnWaypoint(QPointF(pos.x() - 50, pos.y() - 50), 0, waypoint);
-        spawnWaypoint(QPointF(pos.x() + 50, pos.y() + 50), 1, waypoint);
-        spawnWaypoint(QPointF(pos.x() + 50, pos.y() - 50), 3, waypoint);
+        spawnWaypoint(QPointF(pos.x() - DISTANCE, pos.y() - DISTANCE), 0, waypoint);
+        spawnWaypoint(QPointF(pos.x() + DISTANCE, pos.y() + DISTANCE), 1, waypoint);
+        spawnWaypoint(QPointF(pos.x() + DISTANCE, pos.y() - DISTANCE), 3, waypoint);
     }
     if (direction == -1){
-        spawnWaypoint(QPointF(pos.x() - 50, pos.y() - 50), 0, waypoint);
-        spawnWaypoint(QPointF(pos.x() + 50, pos.y() + 50), 1, waypoint);
-        spawnWaypoint(QPointF(pos.x() - 50, pos.y() + 50), 2, waypoint);
-        spawnWaypoint(QPointF(pos.x() + 50, pos.y() - 50), 3, waypoint);
+        spawnWaypoint(QPointF(pos.x() - DISTANCE, pos.y() - DISTANCE), 0, waypoint);
+        spawnWaypoint(QPointF(pos.x() + DISTANCE, pos.y() + DISTANCE), 1, waypoint);
+        spawnWaypoint(QPointF(pos.x() - DISTANCE, pos.y() + DISTANCE), 2, waypoint);
+        spawnWaypoint(QPointF(pos.x() + DISTANCE, pos.y() - DISTANCE), 3, waypoint);
     }
 }
 
@@ -348,6 +355,7 @@ void MileHigh::serverReply(QNetworkReply *reply){
     if (request.url() == SESSION_URL){
         recievedToken(&doc);
     } else if (request.url() == GET_URL + "?token=" + _token) {
+        _currentData = doc;
         recievedGet(&doc);
     } else if (request.url() == POST_URL){
         recievedPost(&doc);
@@ -376,7 +384,6 @@ void MileHigh::recievedGet(QJsonDocument* doc){
                         QPointF(max.value("x").toDouble(),
                                 max.value("y").toDouble()));
         setSceneRect(boundary);
-        views().first()->fitInView(boundary, Qt::KeepAspectRatio);
 
         // Runway
         QJsonObject runwayData = doc->object().value("runway").toObject();
@@ -401,9 +408,6 @@ void MileHigh::recievedGet(QJsonDocument* doc){
     // Directions
     {
         QJsonArray directionsData = doc->object().value("directions").toArray();
-        _directionsDoc = QJsonDocument(directionsData);
-
-        emit directionsDataChanged(_directionsDoc.toJson(QJsonDocument::Indented));
     }
 
     // Objects
@@ -461,5 +465,6 @@ void MileHigh::recievedGet(QJsonDocument* doc){
     }
 }
 void MileHigh::recievedPost(QJsonDocument* doc){
+    Q_UNUSED(doc)
     //qDebug() << "Post data recieved: " << doc->toJson();
 }

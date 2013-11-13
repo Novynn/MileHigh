@@ -9,9 +9,8 @@ class MainWindow : public QMainWindow, private Ui::MainWindow
 
 public:
     explicit MainWindow(QWidget *parent = 0);
-    void newTab();
 private slots:
-    void on_pushButton_clicked();
+    void newTab();
 };
 
 #endif // MAINWINDOW_H

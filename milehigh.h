@@ -28,6 +28,10 @@ public:
         TERMINATING
     };
 
+    QMap<int, Plane*> planes(){
+        return _planes;
+    }
+
     bool initialize();
 
     static const QString BASE_URL;
@@ -47,8 +51,8 @@ public:
         return _token;
     }
 
-    QJsonDocument directionsDoc() const {
-        return _directionsDoc;
+    QJsonDocument currentData() const {
+        return _currentData;
     }
     void updatePlanes();
     void spawnWaypoint(QPointF pos, int direction, Waypoint *parent);
@@ -74,7 +78,7 @@ private:
 
     void setPlanesDirty();
 
-    QJsonDocument _directionsDoc;
+    QJsonDocument _currentData;
 
     Runway* _runway;
     Waypoint* _runwayWaypoint;
@@ -86,7 +90,7 @@ private slots:
     void tick();
     void serverReply(QNetworkReply*);
 signals:
-    void directionsDataChanged(QString);
+    void updated();
 };
 
 #endif // MILEHIGH_H

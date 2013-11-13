@@ -1,38 +1,23 @@
 #include "mainwindow.h"
-#include <QGraphicsView>
-#include "milehigh.h"
+#include "milehighwidget.h"
+#include <QToolButton>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent)
 {
     setupUi(this);
+    QToolButton *newTabButton = new QToolButton(this);
+    tabWidget->setCornerWidget(newTabButton, Qt::TopRightCorner);
+    newTabButton->setText("+");
+    newTabButton->setCursor(Qt::ArrowCursor);
+    newTabButton->setAutoRaise(true);
+    QObject::connect(newTabButton, SIGNAL(clicked()), this, SLOT(newTab()));
+    newTabButton->setToolTip(tr("Add page"));
 
-    QGraphicsView* view = new QGraphicsView(this);
-    view->setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
-    view->setDragMode(QGraphicsView::RubberBandDrag);
-    MileHigh* app = new MileHigh(view);
-    view->setScene(app);
-    app->initialize();
-
-    centralWidget()->layout()->addWidget(view);
+    newTab();
 }
 
 void MainWindow::newTab(){
-//    QDockWidget* widget = new QDockWidget("Tab");
-
-
-//    QGraphicsView* view = new QGraphicsView(widget);
-//    view->setDragMode(QGraphicsView::RubberBandDrag);
-//    MileHigh* app = new MileHigh(view);
-//    view->setScene(app);
-//    app->initialize();
-
-//    widget->setWidget(view);
-//    addDockWidget(Qt::LeftDockWidgetArea, widget);
-//    tabifyDockWidget(tabWidget, widget);
-}
-
-void MainWindow::on_pushButton_clicked()
-{
-    newTab();
+    MileHighWidget* widget = new MileHighWidget(tabWidget);
+    tabWidget->addTab(widget, "Tab");
 }

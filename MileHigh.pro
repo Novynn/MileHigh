@@ -18,7 +18,8 @@ SOURCES += main.cpp\
     objects/obstacle.cpp \
     objects/runway.cpp \
     mainwindow.cpp \
-    objects/waypoint.cpp
+    objects/waypoint.cpp \
+    milehighwidget.cpp
 
 HEADERS  += \
     milehigh.h \
@@ -26,7 +27,8 @@ HEADERS  += \
     objects/obstacle.h \
     objects/runway.h \
     mainwindow.h \
-    objects/waypoint.h
+    objects/waypoint.h \
+    milehighwidget.h
 
 FORMS    += \
     mainwindow.ui
